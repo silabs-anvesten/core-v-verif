@@ -12,9 +12,6 @@
 
 // Global debug values
 volatile int glb_debug_status = 0; // Written by debug code only, read by main code
-volatile int glb_ebreak_status = 0; // Written by ebreak code only, read by main code
-volatile int glb_expect_irq_entry = 0;
-volatile int glb_expect_ebreak_handler  = 0;
 volatile int glb_expect_debug_entry     = 0;
 
 
