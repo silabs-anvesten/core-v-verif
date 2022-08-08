@@ -25,6 +25,8 @@
 .global csr_instr
 .global csr_loop
 .global u_sw_irq_handler
+// Immediate for the trap handler to check to make sure its not looping in infinitely
+#include "csr_priv_gen_test.h"
 
 csr_loop:
 	addi sp,sp,-52
@@ -42,12 +44,16 @@ csr_loop:
 	sw s10, 44(sp)
 	sw s11, 48(sp)
 	li s2, 0
+	li s3, ILLEGALLY_GENERATED_INSN // load reference value to sanity-check max exceptions
 	j csr_custom
+
+exception_max_traps: // if trap count exceeds 'ILLEGALLY_GENERATED_INSN' break and return 0 instead
+	li s2, 0
+	j end_handler_ret
 
 
 end_handler_ret:
 	addi a0, s2, 0 // load the increment to return value
-	// return stack and load to c
 	lw ra, 0(sp)
 	lw s0, 4(sp)
 	lw s1, 8(sp)
@@ -63,19 +69,29 @@ end_handler_ret:
 	lw s11, 48(sp)
 	addi sp,sp, 52
 	ret
-	//jalr x0, 0(ra)
+
+u_sw_irq_handler:
+
+	addi s2, s2, 1 // increment the saved register for every trap
+	bgt s2, s3, exception_max_traps // check if trap counter has exceeded number of illegal instructions
+	//csrrwi 	t0, mepc, x0
+	addi s4, s4, 4 // using s4 saves us one csrsw cmd. per loop.
+	csrrw   x0, mepc, s4 // increment to the next execution in the mepc
+	mret
 
 
 
-csr_custom: // puts the core in usermode.
+csr_custom: // puts the core in usermode and starts the test
 
 	// Zero "mstatus" to set MPP=umode
 	li	t0, 0x1800
 	csrrc   x0, mstatus, t0 // clear the mstatus (mpp -> User mode).
-	la t0, csr_instr //this will pouint to the label below.
+	la t0, csr_instr // load the csr_instr symbol to the mepc
+	la s4, csr_instr // load csr_instr to the s4 register for optimization in the trap 
 	csrrw   x0, mepc, t0
 
 	mret // call the mret to execute mode change.
+
 
 
 csr_instr: // csr privilege loop test

@@ -21,15 +21,19 @@
 *******************************************************************************
 """
 
-func6 = {35, 51} # 'funct6' bit-field usermode unprivileged function codes
-outer_loop = 2048 # 11-bit custom-field instruction
-inner_loop = 32 # 5-bit custom-field instruction
+func6 = {35, 51} # 'funct6' bit-field codes: 100011, 110011
+outer_loop = 2048 # 'custom11' bit-field range (2^11)
+inner_loop = 32 # 'custom5' bit-field range (2^5)
 # ref Figure 3.30: SYSTEM instruction encodings designated for custom use (PRIVSPEC V20211203)
 
-opcode = 115 # SYSTEM OPCODE
+opcode = 115 # SYSTEM OPCODE 1110011
 
 input_string = "// This is the start of the generated code" # start string to move write HEAD.
+header_string = "//start of the function header" # start string script looks for
+header_val = "ILLEGALLY_GENERATED_INSN" # value which gets changed
 pointer = 0 # file pointer 
+headername = "custom_priv_gen_test.h" # name of the header file
+num_lines = 0 # numebr of lines written to file
 filename = "illegal_custom_loop.S" # file which will be written to 
 
 def generator():
@@ -54,6 +58,15 @@ def generator():
     f.write("//end of generated code")
     return num_lines
 
+def header_gen():
+    f.seek(pointer)
+    f.write("// Number of illegaly generated lines as reported by the 'illegal_mcounteren_loop_gen.py'\n")
+    f.write("#define ILLEGALLY_GENERATED_INSN " + str(num_lines) + "\n")
+    f.write("\n")
+    f.write("#endif")
+
+
+
 
 with open(filename, "r+") as f:
     while f.readline().strip("\n") != input_string:
@@ -62,5 +75,15 @@ with open(filename, "r+") as f:
     num_lines = generator() # generate code
     f.truncate() # remove all lines after the generated ones.
 
-print(num_lines, "lines written to file '" + filename + "'")
+
+with open(headername, "r+") as f:
+    while f.readline().strip("\n") != header_string: # place HEAD after input_string
+        pass
+    pointer = f.tell()
+    header_gen()
+    f.truncate() # removes all lines after the last generated line
+
+
+print(num_lines, "lines written to file '" + filename + "'") # user info
+print("Also changed " + header_val + " value to " + str(num_lines) + " in the '" + headername + "' file") # user info
 

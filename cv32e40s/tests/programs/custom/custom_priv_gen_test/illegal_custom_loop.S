@@ -28,8 +28,8 @@
 .global illegal_full
 .global u_sw_irq_handler
 .global put_m_mode
-.global gbl_mysignaltothehandler
-
+// Immediate for the trap handler to check to make sure its not looping in infinitely
+#include "custom_priv_gen_test.h"
 
 illegal_full:
 	addi sp,sp,-52
@@ -47,31 +47,22 @@ illegal_full:
 	sw s10, 44(sp)
 	sw s11, 48(sp)
 	li s2, 0
+	li s3, ILLEGALLY_GENERATED_INSN // load reference value to sanity-check max exceptions
 	j illegal_custom
 
-
+exception_max_traps: // if trap count exceeds 'ILLEGALLY_GENERATED_INSN' break and return 0 instead
+	li s2, 0
+	j end_handler_ret
 
 u_sw_irq_handler:
-	la t0, gbl_mysignaltothehandler
-	lw t0, 0(t0)
-	bnez t0, put_m_mode
 
-	addi s2, s2, 1 // increement every trap
-
-	csrrw 	t0, mepc, x0
-	addi t0, t0, 4
-	csrrw   x0, mepc, t0 // increment to the next 
+	addi s2, s2, 1 // increments every trap
+	bgt s2, s3, exception_max_traps // check if trap counter has exceeded number of illegal instructions
+	//csrrw 	t0, mepc, x0
+	addi s4, s4, 4 // increment s4 which holds the pc value (saves a cssrw per loop)
+	csrrw   x0, mepc, s4 // increment to the next instruction
 	mret
 
-
-
-put_m_mode:
-	li t0, 0x1800 // set std. machine mode
-	csrrw x0, mstatus, t0
-	csrrw 	t0, mepc, x0
-	addi t0, t0, 4
-	csrrw   x0, mepc, t0 // increment to the next 
-	mret
 
 end_handler_ret:
 	addi a0, s2, 0 // load function return value
@@ -100,6 +91,7 @@ illegal_custom: // puts the core in usermode.
 	li	t0, 0x1800
 	csrrc   x0, mstatus, t0 // clear the mstatus (mpp -> User mode).
 	la t0, ill_instr //this will point to the label below.
+	la s4, ill_instr // load ill_instr to the s4 register for optimization in the trap 
 	csrrw   x0, mepc, t0
 
 	mret // call the mret to execute mode change.
