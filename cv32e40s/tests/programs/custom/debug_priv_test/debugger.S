@@ -33,7 +33,7 @@
 .global glb_setmprv_test
 .set test_ret_val, CV_VP_STATUS_FLAGS_BASE
 
-//.section .debugger, "ax" 
+
 _debugger_start:
 	addi sp,sp,-52
 	sw ra, 0(sp)
@@ -50,14 +50,14 @@ _debugger_start:
 	sw s10, 44(sp)
 	sw s11, 48(sp)
 
-	la t0, glb_setmprv_test
-	lw t0, 0(t0)
-	bnez t0, MPRV_test
+	//la t0, glb_setmprv_test
+	//lw t0, 0(t0)
+	//bnez t0, MPRV_test
 
 	j end_debugger
 
 end_debugger:
-	// set the  glb_debug_status bit
+	//set the  glb_debug_status bit
 	la t2, glb_debug_status
 	lw t1, 0(t2)
 	addi t1, t1, 1
@@ -79,7 +79,7 @@ end_debugger:
 	addi sp,sp,52        
     dret
 
-
+/*
 MPRV_test: // Debugger MPRV test
 	// Set U-mode and then MPRV=1 in mstatus
 	li	t0, 0x1800 
@@ -90,7 +90,7 @@ MPRV_test: // Debugger MPRV test
 
 	j end_debugger
 
-
+*/
 
 
 /*

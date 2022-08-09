@@ -101,11 +101,13 @@ int main(void){
       printf("Waiting for Debugger\n");
   }
 
+  printf("successfully exited debug mode.");
+/* 
   asm volatile("ecall");
   int mprvfield = (wmstatus & (0x1 << 17));
   printf("this is the mstatus: %08X\n", wmstatus);
   assert_or_die(mprvfield, 0x0, "Error: MPRV did not change to 0 after Debug --> User change! "); // check that MPRV = 0 after debug exit.
- 
+  */
 
   return EXIT_SUCCESS;
 }
