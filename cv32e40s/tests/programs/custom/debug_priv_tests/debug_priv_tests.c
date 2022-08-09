@@ -28,13 +28,13 @@ static void assert_or_die(uint32_t actual, uint32_t expect, char *msg) {
   }
 }
 
-void increment_mepc(void){ // helper functions which also checks for compressed instructions
-
+/* Checks the mepc for compressed instructions and increments appropriately */
+void increment_mepc(void){
   volatile unsigned int insn, mepc;
 
     __asm__ volatile("csrrs %0, mepc, x0" : "=r"(mepc)); // read the mepc
     __asm__ volatile("lw %0, 0(%1)" : "=r"(insn) : "r"(mepc)); // read the contents of the mepc pc.
-    if ((insn & 0x3) == 0x3) { // chedk for compressed instruction before increment.
+    if ((insn & 0x3) == 0x3) { // check for compressed instruction before increment.
       mepc += 4;
     } else {
       mepc += 2;
@@ -49,14 +49,9 @@ void u_sw_irq_handler(void) {
 
     __asm__ volatile("csrrs %0, mcause, x0" : "=r"(wmcause));
     __asm__ volatile("csrrs %0, mstatus, x0" : "=r"(wmstatus));
-
     int tmstatus = 0x1800;
-
     __asm__ volatile("csrrw x0, mstatus, %0" :: "r"(tmstatus)); // set machine mode 
-
-    increment_mepc(); 
-
-
+    increment_mepc();
 }
 
 

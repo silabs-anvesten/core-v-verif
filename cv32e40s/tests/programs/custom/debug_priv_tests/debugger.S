@@ -24,33 +24,16 @@
 #include "corev_uvmt.h"
 
 .section .debugger, "ax" 
+//.section .text
 .global _debugger_start 
 .global glb_debug_status 
 .global glb_expect_debug_entry 
 .global glb_debug_status 
 .global glb_expect_ebreaku_exc
-.global setup_pmp
-.global set_u_mode
 .global glb_setmprv_test
 .set test_ret_val, CV_VP_STATUS_FLAGS_BASE
 
-setup_pmp:
-	// Set pmp addr to 0xFFFF_FFFF
-	li	t0, 0xFFFFFFFF
-	csrrw	x0, pmpaddr0, t0
-
-	// Set pmp region TOR and read/write/execute
-	li	t0, ((1 << 3) + (7 << 0))
-	csrrw	x0, pmpcfg0, t0
-
-	ret
-
-set_u_mode: // puts the core in usermode.
-	li	t0, 0x1800 // load as bitmask
-	csrrc   x0, mstatus, t0 // clear the mstatus (mpp -> User mode).
-	csrrw 	x0, mepc, ra
-	mret
-
+//.section .debugger, "ax" 
 _debugger_start:
 	addi sp,sp,-52
 	sw ra, 0(sp)
@@ -94,7 +77,7 @@ end_debugger:
 	lw s10, 44(sp)
 	lw s11, 48(sp)
 	addi sp,sp,52        
-        dret
+    dret
 
 
 MPRV_test: // Debugger MPRV test
