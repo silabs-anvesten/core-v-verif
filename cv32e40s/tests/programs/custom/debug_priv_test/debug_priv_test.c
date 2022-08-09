@@ -11,15 +11,20 @@
 
 
 // Global debug values
-volatile int glb_debug_status           = 0; // Written by debug code only, read by main code
-volatile int glb_expect_debug_entry     = 0;
-volatile int glb_expect_ebreaku_exc     = 0; // Written by main code, 
-volatile int glb_setmprv_test           = 0; // Written by main code, 
-volatile int wmcause, wmstatus;
-
-
+volatile uint8_t glb_debug_status           = 0; // Written by debug code only, read by main code
+volatile uint8_t glb_expect_debug_entry     = 0;
+volatile uint8_t glb_expect_ebreaku_exc     = 0; // Written by main code, 
+volatile uint8_t glb_setmprv_test           = 0; // Written by main code, 
+extern volatile uint32_t whatisdcsr         = 4; // written by the assembly code.
+volatile uint32_t wmcause, wmstatus;
+// standard value for the mstatus register
+#define MSTATUS_STD_VAL 0x1800
+// mstatus.MPRV bit
+#define MPRV_BIT 17
 
 extern volatile void setup_pmp(), set_u_mode();
+
+
 static void assert_or_die(uint32_t actual, uint32_t expect, char *msg) {
   if (actual != expect) {
     printf(msg);
@@ -27,6 +32,19 @@ static void assert_or_die(uint32_t actual, uint32_t expect, char *msg) {
     exit(EXIT_FAILURE);
   }
 }
+
+/* 
+Retuns specific bit-field from [bit_indx_low : bit_indx_high] in register x
+*/
+unsigned int get_field(unsigned int x, int bit_indx_low, int bit_indx_high){
+    int field = ( 1 << ( (bit_indx_high - bit_indx_low) + 1) )  - 1;
+    x = (x & (field << bit_indx_low) ) >> bit_indx_low;
+    return x;
+}
+
+
+
+
 
 /* Checks the mepc for compressed instructions and increments appropriately */
 void increment_mepc(void){
@@ -49,8 +67,7 @@ void u_sw_irq_handler(void) {
 
     __asm__ volatile("csrrs %0, mcause, x0" : "=r"(wmcause));
     __asm__ volatile("csrrs %0, mstatus, x0" : "=r"(wmstatus));
-    int tmstatus = 0x1800;
-    __asm__ volatile("csrrw x0, mstatus, %0" :: "r"(tmstatus)); // set machine mode 
+    __asm__ volatile("csrrw x0, mstatus, %0" :: "r"(MSTATUS_STD_VAL)); // set machine mode 
     increment_mepc();
 }
 
@@ -69,7 +86,7 @@ typedef union {
 
 #define DEBUG_REQ_CONTROL_REG *((volatile uint32_t *) (CV_VP_DEBUG_CONTROL_BASE))
 
-void ebreakzero(void){
+void ebreakzero(void){ // TODO: change name 
 
   set_u_mode();
   asm volatile("ebreak");
@@ -77,9 +94,24 @@ void ebreakzero(void){
 
 }
 
+
+/* 
+Transition out of D-mode (dret) into U-mode, while mstatus.mprv=1, ensure that when execution continues outside D-mode that mstatus.mprv=0
+*/
+void MPRV_exit_test(void){
+  asm volatile("ecall");
+  printf("dcsr from before dret: %08X\n", whatisdcsr);
+  printf("mstatus after dret: %08X\n", wmstatus);
+  int mprvfield = get_field(wmstatus, MPRV_BIT, MPRV_BIT);
+  assert_or_die(mprvfield, 0x0, "Error: MPRV did not change to 0 after Debug --> User mode change! "); // check that MPRV = 0 after debug exit.
+
+}
+
 int main(void){
   setup_pmp();
 
+
+  // test 1: Check that U-mode can't change into debug mode while dcsr.priv == 0
   //ebreakzero();
 
 
@@ -96,18 +128,10 @@ int main(void){
 
 
   // test 2: Check MPRV == 0 when entering U-mode from D-mode.
+  glb_setmprv_test = 1; // flag the MRPRV-test for the debug module.
   DEBUG_REQ_CONTROL_REG = debug_req_control.bits; // this will initiate debug mode 
   while(glb_debug_status != glb_hart_status){
       printf("Waiting for Debugger\n");
   }
-
-  printf("successfully exited debug mode.");
-/* 
-  asm volatile("ecall");
-  int mprvfield = (wmstatus & (0x1 << 17));
-  printf("this is the mstatus: %08X\n", wmstatus);
-  assert_or_die(mprvfield, 0x0, "Error: MPRV did not change to 0 after Debug --> User change! "); // check that MPRV = 0 after debug exit.
-  */
-
-  return EXIT_SUCCESS;
+  MPRV_exit_test(); // check the MPRV-bit after transition from Debug to User mode with the MPRV previously == 1.
 }

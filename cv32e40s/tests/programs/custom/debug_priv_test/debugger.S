@@ -31,6 +31,7 @@
 .global glb_debug_status 
 .global glb_expect_ebreaku_exc
 .global glb_setmprv_test
+.global	whatisdcsr
 .set test_ret_val, CV_VP_STATUS_FLAGS_BASE
 
 
@@ -50,9 +51,9 @@ _debugger_start:
 	sw s10, 44(sp)
 	sw s11, 48(sp)
 
-	//la t0, glb_setmprv_test
-	//lw t0, 0(t0)
-	//bnez t0, MPRV_test
+	la t0, glb_setmprv_test
+	lw t0, 0(t0)
+	bnez t0, MPRV_test
 
 	j end_debugger
 
@@ -79,18 +80,23 @@ end_debugger:
 	addi sp,sp,52        
     dret
 
-/*
+/* 
+Transition out of D-mode (dret) into U-mode, while mstatus.mprv=1, ensure that when execution continues outside D-mode that mstatus.mprv=0
+*/
 MPRV_test: // Debugger MPRV test
 	// Set U-mode and then MPRV=1 in mstatus
-	li	t0, 0x1800 
-	csrrc   x0, mstatus, t0 // set U-mode 
+	li t0, 0x3
+	csrrc x0, dcsr, t0 // load U-mode into dcsr.prv register. 
 	li t0, 1
 	slli t0, t0, 17
 	csrrs x0, mstatus, t0 // set MPRV=1
 
-	j end_debugger
+	//check dcsr before exiting. TODO: remove this check
+	la t0, whatisdcsr
+	csrrs t1 , dcsr, x0
+	sw t1, 0(t0)
 
-*/
+	j end_debugger
 
 
 /*
